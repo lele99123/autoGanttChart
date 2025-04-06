@@ -1,0 +1,90 @@
+{
+  "subjects": [
+    {
+      "name": "IG数学(0508)",
+      "chapters": [
+        "Set",
+        "Function",
+        "Quadratics",
+        "Surd Indices",
+        "Geometry",
+        "Solid Geometry",
+        "Graphs",
+        "Probablility",
+        "Trigonometry",
+        "Sequence",
+        "Vector and matrix",
+        "Transformation"
+      ],
+      "difficulties": {
+        "Set": "中等",
+        "Function": "简单",
+        "Quadratics": "简单",
+        "Surd Indices": "中等",
+        "Geometry": "简单",
+        "Solid Geometry": "困难",
+        "Graphs": "中等",
+        "Probablility": "中等",
+        "Trigonometry": "困难",
+        "Sequence": "简单",
+        "Vector and matrix": "困难",
+        "Transformation": "中等"
+      },
+      "difficultyOptions": [
+        "简单",
+        "中等",
+        "困难"
+      ]
+    },
+    {
+      "name": "化学",
+      "chapters": [
+        "原子结构",
+        "元素周期表",
+        "化学键",
+        "化学方程式",
+        "酸碱反应",
+        "氧化还原",
+        "有机化学"
+      ],
+      "difficulties": {
+        "原子结构": "中等",
+        "元素周期表": "简单",
+        "化学键": "中等",
+        "化学方程式": "简单",
+        "酸碱反应": "中等",
+        "氧化还原": "困难",
+        "有机化学": "困难"
+      },
+      "difficultyOptions": [
+        "简单",
+        "中等",
+        "困难"
+      ]
+    },
+    {
+      "name": "物理",
+      "chapters": [
+        "力学",
+        "热学",
+        "光学",
+        "电学",
+        "磁学",
+        "原子物理"
+      ],
+      "difficulties": {
+        "力学": "中等",
+        "热学": "简单",
+        "光学": "中等",
+        "电学": "困难",
+        "磁学": "困难",
+        "原子物理": "困难"
+      },
+      "difficultyOptions": [
+        "简单",
+        "中等",
+        "困难"
+      ]
+    }
+  ]
+}

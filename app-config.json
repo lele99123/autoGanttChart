@@ -1,0 +1,19 @@
+{
+  "serverPort": 3000,
+  "apiEndpoints": {
+    "subjects": "/api/subjects",
+    "plans": "/api/plans",
+    "tasks": "/api/tasks",
+    "subjectsDirect": "/api/subjects-direct"
+  },
+  "files": {
+    "main": "autoGanttChart.html",
+    "subjects": "subjects.json",
+    "database": "database.sqlite"
+  },
+  "paths": {
+    "models": "models",
+    "routes": "routes"
+  },
+  "serverStartTimeout": 30000
+} 
