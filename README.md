@@ -1,86 +1,76 @@
 # 学习计划甘特图生成器
 
-一个用于创建和管理学习计划的甘特图应用程序。
+这是一个纯静态的学习计划甘特图生成器，使用浏览器本地存储保存数据。
 
-## 功能特点
+## 特点
 
-- 创建和管理学习计划
-- 为每个计划添加任务
-- 可视化显示计划进度
-- 支持按日期筛选计划
-- 支持导出计划数据
+- 完全客户端应用，无需后端服务器
+- 使用浏览器的localStorage存储所有数据
+- 响应式设计，适配不同屏幕尺寸
+- 可以导出CSV格式的甘特图数据
 
-## 技术栈
+## Vercel部署说明
 
-- 前端：HTML, CSS, JavaScript
-- 后端：Node.js, Express
-- 数据库：MongoDB (Vercel部署) / SQLite (本地开发)
+### 前提条件
 
-## 本地开发
+- GitHub账户
+- Vercel账户（可以使用GitHub账户登录）
 
-1. 克隆仓库：
-   ```bash
-   git clone https://github.com/yourusername/autoganttchart.git
-   cd autoganttchart
-   ```
+### 部署步骤
 
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
+1. 将此项目推送到GitHub仓库
+2. 登录Vercel控制台 [https://vercel.com/](https://vercel.com/)
+3. 点击 "Import Project" 或 "New Project"
+4. 选择你的GitHub仓库
+5. 使用以下配置:
+   - Framework Preset: 选择 "Other"
+   - Build Command: 留空
+   - Output Directory: 留空
+   - Root Directory: 保持默认值
+   - Environment Variables: 不需要添加任何变量
 
-3. 创建 `.env` 文件并配置环境变量：
-   ```
-   MONGODB_URI=your_mongodb_connection_string
-   ```
+部署完成后，Vercel将提供一个URL以访问你的应用。
 
-4. 启动开发服务器：
-   ```bash
-   npm run dev
-   ```
+### 清理NW.js痕迹
 
-5. 在浏览器中访问 `http://localhost:3000`
+如果在部署中仍然出现 "正在启动服务器..." 的消息，请确保:
 
-## Vercel 部署
+1. 你的项目中有以下文件:
+   - `vercel.json` - 包含纯静态站点配置
+   - `index.html` - 主HTML文件，包含所有应用代码
+   - `package.json` - 极简版本，不包含NW.js配置
 
-1. 在 [Vercel](https://vercel.com) 上创建账号
+2. 可以删除这些文件（如果存在）:
+   - `server.js`
+   - `app-config.json`
+   - `db.js`
+   - `database.js`
+   - `database.sqlite`
+   - `start.sh`
+   - `/models` 目录
+   - `/routes` 目录
 
-2. 安装 Vercel CLI：
-   ```bash
-   npm install -g vercel
-   ```
-
-3. 登录 Vercel：
-   ```bash
-   vercel login
-   ```
-
-4. 部署项目：
-   ```bash
-   vercel
-   ```
-
-5. 在 Vercel 仪表板中配置环境变量：
-   - 添加 `MONGODB_URI` 环境变量
-
-## 构建桌面应用
-
-### Windows
-
-```bash
-npm run build
+3. 修改你的`vercel.json`为:
+```json
+{
+  "buildCommand": false,
+  "outputDirectory": ".",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
 ```
 
-构建输出将位于 `dist` 目录中。
+## 本地运行
 
-### Mac
+只需要在浏览器中打开`index.html`文件即可。
 
-1. 确保已安装 Xcode Command Line Tools
-2. 运行构建命令：
-   ```bash
-   npm run build
-   ```
+## 数据存储
 
-## 许可证
+所有数据都存储在浏览器的localStorage中，包括:
+- 学科和章节数据
+- 学习计划
+- 章节难度设置
 
-MIT 
+数据不会上传到任何服务器，因此在不同浏览器或设备之间不会同步。 
