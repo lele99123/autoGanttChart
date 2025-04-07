@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { StudyPlan, StudyTask } = require('../models');
+const Plan = require('../models/Plan');
+const Task = require('../models/Task');
+const db = require('../db');
 
 // Get all study plans
 router.get('/', async (req, res) => {
@@ -8,13 +10,12 @@ router.get('/', async (req, res) => {
     const { date } = req.query;
     
     // 如果提供了日期参数，按日期筛选
-    const whereClause = date ? { planDate: date } : {};
+    const query = date ? { planDate: new Date(date) } : {};
     
-    const plans = await StudyPlan.findAll({
-      where: whereClause,
-      include: [StudyTask],
-      order: [['planDate', 'DESC']]
-    });
+    const plans = await Plan.find(query)
+      .populate('tasks')
+      .sort({ planDate: -1 });
+    
     res.json(plans);
   } catch (error) {
     console.error('Error fetching plans:', error);
@@ -25,9 +26,8 @@ router.get('/', async (req, res) => {
 // Get a specific study plan with its tasks
 router.get('/:id', async (req, res) => {
   try {
-    const plan = await StudyPlan.findByPk(req.params.id, {
-      include: [StudyTask]
-    });
+    const plan = await Plan.findById(req.params.id)
+      .populate('tasks');
     
     if (!plan) {
       return res.status(404).json({ error: 'Plan not found' });
@@ -50,25 +50,25 @@ router.post('/', async (req, res) => {
     }
     
     // Create the plan
-    const plan = await StudyPlan.create({
-      name,
-      planDate
+    const plan = await Plan.create({
+      planName: name,
+      planDate: new Date(planDate)
     });
     
     // Create tasks if provided
     if (tasks && Array.isArray(tasks) && tasks.length > 0) {
       const tasksWithPlanId = tasks.map(task => ({
         ...task,
-        planId: plan.id
+        planId: plan._id,
+        taskDate: new Date(task.taskDate)
       }));
       
-      await StudyTask.bulkCreate(tasksWithPlanId);
+      await Task.insertMany(tasksWithPlanId);
     }
     
     // Return the created plan with its tasks
-    const createdPlan = await StudyPlan.findByPk(plan.id, {
-      include: [StudyTask]
-    });
+    const createdPlan = await Plan.findById(plan._id)
+      .populate('tasks');
     
     res.status(201).json(createdPlan);
   } catch (error) {
@@ -81,40 +81,36 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { name, planDate, tasks } = req.body;
-    const plan = await StudyPlan.findByPk(req.params.id);
+    const plan = await Plan.findById(req.params.id);
     
     if (!plan) {
       return res.status(404).json({ error: 'Plan not found' });
     }
     
     // Update plan properties
-    if (name) plan.name = name;
-    if (planDate) plan.planDate = planDate;
+    if (name) plan.planName = name;
+    if (planDate) plan.planDate = new Date(planDate);
     
     await plan.save();
     
     // 如果提供了任务，更新任务
     if (tasks && Array.isArray(tasks) && tasks.length > 0) {
       // 删除现有任务
-      await StudyTask.destroy({
-        where: {
-          planId: plan.id
-        }
-      });
+      await Task.deleteMany({ planId: plan._id });
       
       // 创建新任务
       const tasksWithPlanId = tasks.map(task => ({
         ...task,
-        planId: plan.id
+        planId: plan._id,
+        taskDate: new Date(task.taskDate)
       }));
       
-      await StudyTask.bulkCreate(tasksWithPlanId);
+      await Task.insertMany(tasksWithPlanId);
     }
     
     // 返回更新后的计划及其任务
-    const updatedPlan = await StudyPlan.findByPk(plan.id, {
-      include: [StudyTask]
-    });
+    const updatedPlan = await Plan.findById(plan._id)
+      .populate('tasks');
     
     res.json(updatedPlan);
   } catch (error) {
@@ -126,13 +122,17 @@ router.put('/:id', async (req, res) => {
 // Delete a study plan
 router.delete('/:id', async (req, res) => {
   try {
-    const plan = await StudyPlan.findByPk(req.params.id);
+    const plan = await Plan.findById(req.params.id);
     
     if (!plan) {
       return res.status(404).json({ error: 'Plan not found' });
     }
     
-    await plan.destroy();
+    // 删除关联的任务
+    await Task.deleteMany({ planId: plan._id });
+    
+    // 删除计划
+    await plan.deleteOne();
     
     res.status(204).end();
   } catch (error) {

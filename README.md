@@ -1,63 +1,86 @@
-# 学习计划甘特图生成器 (Study Plan Gantt Chart Generator)
+# 学习计划甘特图生成器
 
-An application for creating and managing study plans with Gantt chart visualization.
+一个用于创建和管理学习计划的甘特图应用程序。
 
-## Features
+## 功能特点
 
-- Create and manage study plans
-- Organize tasks by subject and chapter
-- Set difficulty levels for study topics
-- Visualize plans with Gantt charts
-- Export data to CSV
+- 创建和管理学习计划
+- 为每个计划添加任务
+- 可视化显示计划进度
+- 支持按日期筛选计划
+- 支持导出计划数据
 
-## Technologies
+## 技术栈
 
-- Electron for desktop application
-- Express.js for backend server
-- SQLite for database
-- HTML/CSS/JavaScript for frontend
+- 前端：HTML, CSS, JavaScript
+- 后端：Node.js, Express
+- 数据库：MongoDB (Vercel部署) / SQLite (本地开发)
 
-## Installation
+## 本地开发
 
-1. Clone the repository
-2. Install dependencies:
+1. 克隆仓库：
+   ```bash
+   git clone https://github.com/yourusername/autoganttchart.git
+   cd autoganttchart
+   ```
+
+2. 安装依赖：
+   ```bash
+   npm install
+   ```
+
+3. 创建 `.env` 文件并配置环境变量：
+   ```
+   MONGODB_URI=your_mongodb_connection_string
+   ```
+
+4. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
+
+5. 在浏览器中访问 `http://localhost:3000`
+
+## Vercel 部署
+
+1. 在 [Vercel](https://vercel.com) 上创建账号
+
+2. 安装 Vercel CLI：
+   ```bash
+   npm install -g vercel
+   ```
+
+3. 登录 Vercel：
+   ```bash
+   vercel login
+   ```
+
+4. 部署项目：
+   ```bash
+   vercel
+   ```
+
+5. 在 Vercel 仪表板中配置环境变量：
+   - 添加 `MONGODB_URI` 环境变量
+
+## 构建桌面应用
+
+### Windows
 
 ```bash
-npm install
+npm run build
 ```
 
-## Usage
+构建输出将位于 `dist` 目录中。
 
-### Development Mode
+### Mac
 
-Run the Express server:
+1. 确保已安装 Xcode Command Line Tools
+2. 运行构建命令：
+   ```bash
+   npm run build
+   ```
 
-```bash
-npm run dev
-```
+## 许可证
 
-Run with Electron:
-
-```bash
-npm run electron-dev
-```
-
-### Production Build
-
-Create a packaged application:
-
-```bash
-npm run dist
-```
-
-This will create installers in the `dist` folder.
-
-## Notes for Customization
-
-- Add custom icons:
-  - For Windows: Add `icon.ico` in the root directory
-  - For macOS: Add `icon.icns` in the root directory
-
-## License
-
-This software is provided as-is without any guarantees or warranty. 
+MIT 

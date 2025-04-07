@@ -3,7 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const { testConnection, initDatabase } = require('./database');
+const db = require('./db');
 
 // 获取应用程序根目录
 const getAppPath = () => {
@@ -104,11 +104,7 @@ async function startServer() {
         // 检查必需的文件
         checkRequiredFiles();
         
-        // Test database connection
-        await testConnection();
-        
-        // Initialize database (create tables and seed data)
-        await initDatabase();
+        // 数据库连接已经在 db.js 中处理
         
         // Start the server
         app.listen(PORT, () => {

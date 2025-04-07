@@ -1,16 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { StudyTask } = require('../models');
+const Task = require('../models/Task');
+const db = require('../db');
 
 // Get all tasks for a specific plan
 router.get('/plan/:planId', async (req, res) => {
   try {
-    const tasks = await StudyTask.findAll({
-      where: {
-        planId: req.params.planId
-      },
-      order: [['startTime', 'ASC']]
-    });
+    const tasks = await Task.find({
+      planId: req.params.planId
+    }).sort({ taskDate: 1 });
     
     res.json(tasks);
   } catch (error) {
@@ -22,7 +20,7 @@ router.get('/plan/:planId', async (req, res) => {
 // Get a specific task
 router.get('/:id', async (req, res) => {
   try {
-    const task = await StudyTask.findByPk(req.params.id);
+    const task = await Task.findById(req.params.id);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
@@ -38,21 +36,19 @@ router.get('/:id', async (req, res) => {
 // Create a new task
 router.post('/', async (req, res) => {
   try {
-    const { planId, subject, chapters, content, startTime, durationTime } = req.body;
+    const { planId, taskName, taskDate, taskStatus } = req.body;
     
-    if (!planId || !subject || !startTime || !durationTime) {
+    if (!planId || !taskName || !taskDate) {
       return res.status(400).json({ 
-        error: 'PlanId, subject, startTime, and durationTime are required' 
+        error: 'PlanId, taskName, and taskDate are required' 
       });
     }
     
-    const task = await StudyTask.create({
+    const task = await Task.create({
       planId,
-      subject,
-      chapters,
-      content,
-      startTime,
-      durationTime
+      taskName,
+      taskDate: new Date(taskDate),
+      taskStatus: taskStatus || 'pending'
     });
     
     res.status(201).json(task);
@@ -65,19 +61,17 @@ router.post('/', async (req, res) => {
 // Update a task
 router.put('/:id', async (req, res) => {
   try {
-    const { subject, chapters, content, startTime, durationTime } = req.body;
-    const task = await StudyTask.findByPk(req.params.id);
+    const { taskName, taskDate, taskStatus } = req.body;
+    const task = await Task.findById(req.params.id);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
     
     // Update task properties
-    if (subject) task.subject = subject;
-    if (chapters !== undefined) task.chapters = chapters;
-    if (content !== undefined) task.content = content;
-    if (startTime) task.startTime = startTime;
-    if (durationTime) task.durationTime = durationTime;
+    if (taskName) task.taskName = taskName;
+    if (taskDate) task.taskDate = new Date(taskDate);
+    if (taskStatus) task.taskStatus = taskStatus;
     
     await task.save();
     
@@ -91,13 +85,13 @@ router.put('/:id', async (req, res) => {
 // Delete a task
 router.delete('/:id', async (req, res) => {
   try {
-    const task = await StudyTask.findByPk(req.params.id);
+    const task = await Task.findById(req.params.id);
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    await task.destroy();
+    await task.deleteOne();
     
     res.status(204).end();
   } catch (error) {

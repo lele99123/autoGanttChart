@@ -368,6 +368,7 @@
         let currentPlanId = null;
         let currentPlan = null;
         let subjects = {};
+        let plans = []; // 存储所有计划
         
         // DOM元素
         const plansTab = document.getElementById('plans-tab');
@@ -394,6 +395,32 @@
             loadPlans();
         });
         
+        // 本地存储函数
+        function saveToLocalStorage(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+                return true;
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+                return false;
+            }
+        }
+        
+        function getFromLocalStorage(key) {
+            try {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            } catch (error) {
+                console.error('Error reading from localStorage:', error);
+                return null;
+            }
+        }
+        
+        // 生成唯一ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+        
         // 事件监听器设置
         function setupEventListeners() {
             // 学科编辑模态框相关事件
@@ -407,58 +434,69 @@
             
             // 打开学科编辑模态框
             editSubjectsBtn.addEventListener('click', function() {
-                // 获取当前学科数据
-                fetch('/api/subjects')
-                    .then(response => response.json())
-                    .then(data => {
-                        // 尝试从本地文件加载subjects.json
-                        fetch('/subjects.json')
-                            .then(response => response.json())
-                            .then(jsonData => {
-                                // 填充编辑器
-                                subjectsJsonEditor.value = JSON.stringify(jsonData, null, 2);
-                                jsonError.textContent = '';
+                // 从本地存储获取学科数据
+                const subjectsData = getFromLocalStorage('subjects');
+                const subjectsJson = getFromLocalStorage('subjectsJson');
+                
+                if (subjectsData) {
+                    // 填充编辑器
+                    if (subjectsJson) {
+                        subjectsJsonEditor.value = JSON.stringify(subjectsJson, null, 2);
+                    } else {
+                        // 转换为包含难度选项的JSON格式
+                        const formattedData = {
+                            subjects: subjectsData.map(subject => {
+                                const chapters = subject.Chapters.map(chapter => chapter.name);
+                                const difficulties = {};
+                                const difficultyOptions = ["简单", "中等", "困难"];
                                 
-                                // 显示模态框
-                                subjectsModal.style.display = 'flex';
-                            })
-                            .catch(error => {
-                                // 如果无法加载subjects.json，则使用API数据
-                                console.error('Error loading subjects.json:', error);
+                                // 为每个章节设置默认难度
+                                chapters.forEach(chapter => {
+                                    difficulties[chapter] = "中等";
+                                });
                                 
-                                // 转换为包含难度选项的JSON格式
-                                const subjectsData = {
-                                    subjects: data.map(subject => {
-                                        const chapters = subject.Chapters.map(chapter => chapter.name);
-                                        const difficulties = {};
-                                        const difficultyOptions = ["简单", "中等", "困难"];
-                                        
-                                        // 为每个章节设置默认难度
-                                        chapters.forEach(chapter => {
-                                            difficulties[chapter] = "中等";
-                                        });
-                                        
-                                        return {
-                                            name: subject.name,
-                                            chapters: chapters,
-                                            difficulties: difficulties,
-                                            difficultyOptions: difficultyOptions
-                                        };
-                                    })
+                                return {
+                                    name: subject.name,
+                                    chapters: chapters,
+                                    difficulties: difficulties,
+                                    difficultyOptions: difficultyOptions
                                 };
-                                
-                                // 填充编辑器
-                                subjectsJsonEditor.value = JSON.stringify(subjectsData, null, 2);
-                                jsonError.textContent = '';
-                                
-                                // 显示模态框
-                                subjectsModal.style.display = 'flex';
-                            });
-                    })
-                    .catch(error => {
-                        console.error('Error loading subjects for editing:', error);
-                        alert('加载学科数据失败，请重试');
+                            })
+                        };
+                        
+                        subjectsJsonEditor.value = JSON.stringify(formattedData, null, 2);
+                    }
+                    
+                    jsonError.textContent = '';
+                    
+                    // 显示模态框
+                    subjectsModal.style.display = 'flex';
+                } else {
+                    // 如果没有学科数据，创建一个默认的
+                    const defaultData = {
+                        subjects: [
+                            {
+                                name: "数学",
+                                chapters: ["Set", "Function", "Quadratics", "Surd Indices", "Geometry", "Solid Geometry", "Graphs", "Probablility", "Trigonometry", "Sequence", "Vector and matrix", "Transformation"],
+                                difficulties: {},
+                                difficultyOptions: ["简单", "中等", "困难"]
+                            }
+                        ]
+                    };
+                    
+                    // 为每个章节设置默认难度
+                    defaultData.subjects.forEach(subject => {
+                        subject.chapters.forEach(chapter => {
+                            subject.difficulties[chapter] = "中等";
+                        });
                     });
+                    
+                    subjectsJsonEditor.value = JSON.stringify(defaultData, null, 2);
+                    jsonError.textContent = '';
+                    
+                    // 显示模态框
+                    subjectsModal.style.display = 'flex';
+                }
             });
             
             // 关闭模态框
@@ -491,20 +529,32 @@
                         }
                     }
                     
-                    // 保存到服务器
-                    saveSubjectsToServer(subjectsData)
-                        .then(() => {
-                            // 关闭模态框
-                            subjectsModal.style.display = 'none';
-                            
-                            // 重新加载学科数据
-                            loadSubjects();
-                            
-                            alert('学科和章节数据已保存');
-                        })
-                        .catch(error => {
-                            jsonError.textContent = `保存失败：${error.message}`;
-                        });
+                    // 保存到本地存储
+                    saveToLocalStorage('subjectsJson', subjectsData);
+                    
+                    // 转换为API格式并保存
+                    const apiFormat = subjectsData.subjects.map(subject => {
+                        return {
+                            id: generateId(),
+                            name: subject.name,
+                            Chapters: subject.chapters.map(chapter => {
+                                return {
+                                    id: generateId(),
+                                    name: chapter
+                                };
+                            })
+                        };
+                    });
+                    
+                    saveToLocalStorage('subjects', apiFormat);
+                    
+                    // 关闭模态框
+                    subjectsModal.style.display = 'none';
+                    
+                    // 重新加载学科数据
+                    loadSubjects();
+                    
+                    alert('学科和章节数据已保存');
                 } catch (error) {
                     jsonError.textContent = error.message;
                 }
@@ -566,23 +616,21 @@
             dateInput.addEventListener('change', function() {
                 const selectedDate = this.value;
                 if (selectedDate) {
+                    // 从本地存储获取计划
+                    const allPlans = getFromLocalStorage('plans') || [];
+                    
                     // 查找是否有该日期的计划
-                    fetch(`/api/plans?date=${selectedDate}`)
-                        .then(response => response.json())
-                        .then(plans => {
-                            // 如果有该日期的计划，加载第一个
-                            if (plans && plans.length > 0) {
-                                editPlan(plans[0].id);
-                            } else {
-                                // 如果没有该日期的计划，清空任务列表
-                                currentPlanId = null;
-                                currentPlan = null;
-                                clearTaskList();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking for plans on date:', error);
-                        });
+                    const plansForDate = allPlans.filter(plan => plan.planDate === selectedDate);
+                    
+                    // 如果有该日期的计划，加载第一个
+                    if (plansForDate && plansForDate.length > 0) {
+                        editPlan(plansForDate[0].id);
+                    } else {
+                        // 如果没有该日期的计划，清空任务列表
+                        currentPlanId = null;
+                        currentPlan = null;
+                        clearTaskList();
+                    }
                 }
             });
             
@@ -594,22 +642,66 @@
         
         // 加载学科和章节数据
         function loadSubjects() {
-            fetch('/api/subjects')
-                .then(response => response.json())
-                .then(data => {
-                    // 将数据转换为我们需要的格式
-                    subjects = {};
-                    data.forEach(subject => {
-                        subjects[subject.name] = subject.Chapters.map(chapter => chapter.name);
-                    });
-                    
-                    // 填充学科下拉框
-                    populateSubjectDropdowns();
-                })
-                .catch(error => {
-                    console.error('Error loading subjects:', error);
-                    alert('加载学科数据失败，请刷新页面重试');
+            // 从本地存储获取学科数据
+            const subjectsData = getFromLocalStorage('subjects');
+            
+            if (subjectsData) {
+                // 将数据转换为我们需要的格式
+                subjects = {};
+                subjectsData.forEach(subject => {
+                    subjects[subject.name] = subject.Chapters.map(chapter => chapter.name);
                 });
+                
+                // 填充学科下拉框
+                populateSubjectDropdowns();
+            } else {
+                // 如果没有学科数据，创建一个默认的
+                subjects = {
+                    "数学": ["Set", "Function", "Quadratics", "Surd Indices", "Geometry", "Solid Geometry", "Graphs", "Probablility", "Trigonometry", "Sequence", "Vector and matrix", "Transformation"]
+                };
+                
+                // 填充学科下拉框
+                populateSubjectDropdowns();
+                
+                // 保存到本地存储
+                const apiFormat = Object.keys(subjects).map(subjectName => {
+                    return {
+                        id: generateId(),
+                        name: subjectName,
+                        Chapters: subjects[subjectName].map(chapter => {
+                            return {
+                                id: generateId(),
+                                name: chapter
+                            };
+                        })
+                    };
+                });
+                
+                saveToLocalStorage('subjects', apiFormat);
+                
+                // 创建默认的subjects.json格式
+                const defaultJson = {
+                    subjects: Object.keys(subjects).map(subjectName => {
+                        const chapters = subjects[subjectName];
+                        const difficulties = {};
+                        const difficultyOptions = ["简单", "中等", "困难"];
+                        
+                        // 为每个章节设置默认难度
+                        chapters.forEach(chapter => {
+                            difficulties[chapter] = "中等";
+                        });
+                        
+                        return {
+                            name: subjectName,
+                            chapters: chapters,
+                            difficulties: difficulties,
+                            difficultyOptions: difficultyOptions
+                        };
+                    })
+                };
+                
+                saveToLocalStorage('subjectsJson', defaultJson);
+            }
         }
         
         // 填充所有学科下拉框
@@ -650,138 +742,132 @@
         
         // 加载学习计划列表
         function loadPlans() {
-            fetch('/api/plans')
-                .then(response => response.json())
-                .then(plans => {
-                    const plansTableBody = document.getElementById('plans-table-body');
-                    plansTableBody.innerHTML = '';
-                    
-                    if (plans.length === 0) {
-                        plansTableBody.innerHTML = '<tr><td colspan="4">暂无学习计划</td></tr>';
-                        return;
-                    }
-                    
-                    plans.forEach(plan => {
-                        const row = document.createElement('tr');
-                        
-                        row.innerHTML = `
-                            <td>${plan.name}</td>
-                            <td>${formatDate(plan.planDate)}</td>
-                            <td>${plan.StudyTasks ? plan.StudyTasks.length : 0}</td>
-                            <td>
-                                <button class="btn" onclick="viewPlan('${plan.id}')">查看</button>
-                                <button class="btn" onclick="editPlan('${plan.id}')">编辑</button>
-                                <button class="btn" onclick="deletePlan('${plan.id}')">删除</button>
-                            </td>
-                        `;
-                        
-                        plansTableBody.appendChild(row);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading plans:', error);
-                    alert('加载学习计划失败，请刷新页面重试');
-                });
+            // 从本地存储获取计划
+            const plansData = getFromLocalStorage('plans') || [];
+            plans = plansData;
+            
+            const plansTableBody = document.getElementById('plans-table-body');
+            plansTableBody.innerHTML = '';
+            
+            if (plans.length === 0) {
+                plansTableBody.innerHTML = '<tr><td colspan="4">暂无学习计划</td></tr>';
+                return;
+            }
+            
+            plans.forEach(plan => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${plan.name}</td>
+                    <td>${formatDate(plan.planDate)}</td>
+                    <td>${plan.StudyTasks ? plan.StudyTasks.length : 0}</td>
+                    <td>
+                        <button class="btn" onclick="viewPlan('${plan.id}')">查看</button>
+                        <button class="btn" onclick="editPlan('${plan.id}')">编辑</button>
+                        <button class="btn" onclick="deletePlan('${plan.id}')">删除</button>
+                    </td>
+                `;
+                
+                plansTableBody.appendChild(row);
+            });
         }
         
         // 格式化日期
         function formatDate(dateString) {
-            const date = new Date(dateString);
+            const date = new Date(dateString + 'T00:00:00');
             return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
         }
         
         // 查看学习计划
         function viewPlan(planId) {
-            fetch(`/api/plans/${planId}`)
-                .then(response => response.json())
-                .then(plan => {
-                    currentPlanId = plan.id;
-                    currentPlan = plan;
-                    
-                    // 显示计划名称
-                    document.getElementById('current-plan-name').textContent = plan.name;
-                    
-                    // 切换到甘特图视图
-                    plansList.style.display = 'none';
-                    inputForm.style.display = 'none';
-                    ganttChart.style.display = 'block';
-                    
-                    // 渲染甘特图
-                    renderGanttChart();
-                })
-                .catch(error => {
-                    console.error('Error loading plan:', error);
-                    alert('加载学习计划详情失败，请重试');
-                });
+            // 从本地存储获取计划
+            const plansData = getFromLocalStorage('plans') || [];
+            const plan = plansData.find(p => p.id === planId);
+            
+            if (plan) {
+                currentPlanId = plan.id;
+                currentPlan = plan;
+                
+                // 显示计划名称
+                document.getElementById('current-plan-name').textContent = plan.name;
+                
+                // 切换到甘特图视图
+                plansList.style.display = 'none';
+                inputForm.style.display = 'none';
+                ganttChart.style.display = 'block';
+                
+                // 渲染甘特图
+                renderGanttChart();
+            } else {
+                alert('找不到指定的学习计划');
+            }
         }
         
         // 编辑学习计划
         function editPlan(planId) {
-            fetch(`/api/plans/${planId}`)
-                .then(response => response.json())
-                .then(plan => {
-                    currentPlanId = plan.id;
-                    currentPlan = plan;
+            // 从本地存储获取计划
+            const plansData = getFromLocalStorage('plans') || [];
+            const plan = plansData.find(p => p.id === planId);
+            
+            if (plan) {
+                currentPlanId = plan.id;
+                currentPlan = plan;
+                
+                // 填充计划名称和日期
+                planNameInput.value = plan.name;
+                // 确保日期格式正确
+                const planDate = new Date(plan.planDate + 'T00:00:00');
+                dateInput.value = planDate.toISOString().split('T')[0];
+                
+                // 清空任务列表
+                clearTaskList();
+                
+                // 填充任务
+                if (plan.StudyTasks && plan.StudyTasks.length > 0) {
+                    // 设置第一行数据
+                    const firstTask = plan.StudyTasks[0];
+                    const firstRow = document.querySelector('#task-list tr');
                     
-                    // 填充计划名称和日期
-                    planNameInput.value = plan.name;
-                    dateInput.value = plan.planDate;
+                    firstRow.querySelector('.subject-select').value = firstTask.subject;
+                    populateChapters(firstRow.querySelector('.subject-select'), firstTask.subject);
                     
-                    // 清空任务列表
-                    clearTaskList();
+                    setTimeout(() => {
+                        firstRow.querySelector('.chapter-select').value = firstTask.chapters;
+                        firstRow.querySelector('.content-input').value = firstTask.content || '';
+                        firstRow.querySelector('.start-time').value = firstTask.startTime;
+                        firstRow.querySelector('.duration').value = convertTimeToHours(firstTask.durationTime);
+                    }, 100);
                     
-                    // 填充任务
-                    if (plan.StudyTasks && plan.StudyTasks.length > 0) {
-                        // 设置第一行数据
-                        const firstTask = plan.StudyTasks[0];
-                        const firstRow = document.querySelector('#task-list tr');
-                        
-                        firstRow.querySelector('.subject-select').value = firstTask.subject;
-                        populateChapters(firstRow.querySelector('.subject-select'), firstTask.subject);
-                        
-                        setTimeout(() => {
-                            firstRow.querySelector('.chapter-select').value = firstTask.chapters;
-                            firstRow.querySelector('.content-input').value = firstTask.content || '';
-                            firstRow.querySelector('.start-time').value = firstTask.startTime;
-                            firstRow.querySelector('.duration').value = convertTimeToHours(firstTask.durationTime);
-                        }, 100);
-                        
-                        // 添加其他行
-                        for (let i = 1; i < plan.StudyTasks.length; i++) {
-                            const task = plan.StudyTasks[i];
-                            addTaskRow(task);
-                        }
+                    // 添加其他行
+                    for (let i = 1; i < plan.StudyTasks.length; i++) {
+                        const task = plan.StudyTasks[i];
+                        addTaskRow(task);
                     }
-                    
-                    // 切换到输入表单视图
-                    plansList.style.display = 'none';
-                    inputForm.style.display = 'block';
-                    ganttChart.style.display = 'none';
-                })
-                .catch(error => {
-                    console.error('Error loading plan for edit:', error);
-                    alert('加载学习计划详情失败，请重试');
-                });
+                }
+                
+                // 切换到输入表单视图
+                plansList.style.display = 'none';
+                inputForm.style.display = 'block';
+                ganttChart.style.display = 'none';
+            } else {
+                alert('找不到指定的学习计划');
+            }
         }
         
         // 删除学习计划
         function deletePlan(planId) {
             if (confirm('确定要删除这个学习计划吗？此操作不可撤销。')) {
-                fetch(`/api/plans/${planId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => {
-                    if (response.ok || response.status === 204) {
-                        alert('学习计划已删除');
-                        loadPlans();
-                    } else {
-                        throw new Error('删除失败');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting plan:', error);
-                    alert('删除学习计划失败，请重试');
-                });
+                // 从本地存储获取计划
+                const plansData = getFromLocalStorage('plans') || [];
+                
+                // 过滤掉要删除的计划
+                const updatedPlans = plansData.filter(plan => plan.id !== planId);
+                
+                // 保存回本地存储
+                saveToLocalStorage('plans', updatedPlans);
+                
+                alert('学习计划已删除');
+                loadPlans();
             }
         }
         
@@ -917,6 +1003,7 @@
                 
                 if (subject && chapter && startTime && duration) {
                     tasks.push({
+                        id: generateId(),
                         subject: subject,
                         chapters: chapter,
                         content: content,
@@ -931,44 +1018,52 @@
                 return;
             }
             
-            const planData = {
-                name: planName,
-                planDate: date,
-                tasks: tasks
-            };
+            // 从本地存储获取现有计划
+            const plansData = getFromLocalStorage('plans') || [];
             
-            // 创建或更新计划
-            const url = currentPlanId ? `/api/plans/${currentPlanId}` : '/api/plans';
-            const method = currentPlanId ? 'PUT' : 'POST';
+            if (currentPlanId) {
+                // 更新现有计划
+                const updatedPlans = plansData.map(plan => {
+                    if (plan.id === currentPlanId) {
+                        return {
+                            ...plan,
+                            name: planName,
+                            planDate: date,
+                            StudyTasks: tasks
+                        };
+                    }
+                    return plan;
+                });
+                
+                saveToLocalStorage('plans', updatedPlans);
+                currentPlan = updatedPlans.find(plan => plan.id === currentPlanId);
+            } else {
+                // 创建新计划
+                const newPlan = {
+                    id: generateId(),
+                    name: planName,
+                    planDate: date,
+                    StudyTasks: tasks
+                };
+                
+                plansData.push(newPlan);
+                saveToLocalStorage('plans', plansData);
+                currentPlanId = newPlan.id;
+                currentPlan = newPlan;
+            }
             
-            fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(planData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert('学习计划已保存！');
-                currentPlanId = data.id;
-                currentPlan = data;
-                
-                // 切换到甘特图视图
-                plansList.style.display = 'none';
-                inputForm.style.display = 'none';
-                ganttChart.style.display = 'block';
-                
-                // 显示计划名称
-                document.getElementById('current-plan-name').textContent = data.name;
-                
-                // 渲染甘特图
-                renderGanttChart();
-            })
-            .catch(error => {
-                console.error('Error saving plan:', error);
-                alert('保存学习计划失败，请重试');
-            });
+            alert('学习计划已保存！');
+            
+            // 切换到甘特图视图
+            plansList.style.display = 'none';
+            inputForm.style.display = 'none';
+            ganttChart.style.display = 'block';
+            
+            // 显示计划名称
+            document.getElementById('current-plan-name').textContent = currentPlan.name;
+            
+            // 渲染甘特图
+            renderGanttChart();
         }
         
         // 渲染甘特图
@@ -979,255 +1074,20 @@
             }
             
             // 获取所有计划数据
-            fetch('/api/plans')
-                .then(response => response.json())
-                .then(plans => {
-                    // 尝试加载subjects.json以获取难度信息
-                    fetch('/subjects.json')
-                        .then(response => response.json())
-                        .then(subjectsJson => {
-                            // 提取所有唯一的日期
-                            const allDates = new Set();
-                            plans.forEach(plan => {
-                                allDates.add(plan.planDate);
-                            });
-                            
-                            // 将日期转换为数组并排序
-                            const sortedDates = Array.from(allDates).sort();
-                            
-                            // 获取所有学科和章节
-                            const subjectChapters = {};
-                            
-                            // 收集所有学科和章节
-                            for (const subject in subjects) {
-                                if (!subjectChapters[subject]) {
-                                    subjectChapters[subject] = [];
-                                }
-                                
-                                if (subjects[subject]) {
-                                    subjects[subject].forEach(chapter => {
-                                        subjectChapters[subject].push(chapter);
-                                    });
-                                }
-                            }
-                            
-                            // 计算每个章节的总持续时间
-                            const chapterDurations = {};
-                            plans.forEach(plan => {
-                                if (plan.StudyTasks) {
-                                    plan.StudyTasks.forEach(task => {
-                                        const key = `${task.subject}|${task.chapters}`;
-                                        if (!chapterDurations[key]) {
-                                            chapterDurations[key] = 0;
-                                        }
-                                        chapterDurations[key] += convertTimeToHours(task.durationTime);
-                                    });
-                                }
-                            });
-                            
-                            // 获取第一个日期的年份和月份作为表头
-                            let yearMonth = '';
-                            if (sortedDates.length > 0) {
-                                const firstDate = new Date(sortedDates[0]);
-                                const year = firstDate.getFullYear();
-                                const month = firstDate.getMonth() + 1;
-                                yearMonth = `${year}年${month}月`;
-                            } else {
-                                const today = new Date();
-                                const year = today.getFullYear();
-                                const month = today.getMonth() + 1;
-                                yearMonth = `${year}年${month}月`;
-                            }
-                            
-                            // 创建甘特图表格
-                            let tableHTML = `<table class="gantt-table" style="border-collapse: collapse; width: 100%;">
-                                <thead>
-                                    <tr>
-                                        <th style="background-color: #4285f4; color: white; text-align: center; vertical-align: middle; border: 1px solid #ddd;" rowspan="2">学习科目</th>
-                                        <th style="background-color: #4285f4; color: white; text-align: center; vertical-align: middle; border: 1px solid #ddd;" rowspan="2">考点</th>
-                                        <th style="background-color: #4285f4; color: white; text-align: center; vertical-align: middle; border: 1px solid #ddd;" rowspan="2">难度</th>
-                                        <th style="background-color: #4285f4; color: white; text-align: center; vertical-align: middle; border: 1px solid #ddd;" rowspan="2">持续时间</th>
-                                        <th style="background-color: #4285f4; color: white; text-align: center; border: 1px solid #ddd;" colspan="${sortedDates.length}">${yearMonth}</th>
-                                    </tr>
-                                    <tr>`;
-                            
-                            // 添加日期列
-                            sortedDates.forEach(date => {
-                                const dateObj = new Date(date);
-                                const day = dateObj.getDate();
-                                tableHTML += `<th style="background-color: #4285f4; color: white; text-align: center; border: 1px solid #ddd; min-width: 40px;">4月${day}日</th>`;
-                            });
-                            
-                            tableHTML += `</tr></thead><tbody>`;
-                            
-                            // 按学科和章节分组填充行数据
-                            let currentSubject = null;
-                            let rowspanCount = 0;
-                            
-                            // 遍历所有学科
-                            for (const subject in subjectChapters) {
-                                const chapters = subjectChapters[subject];
-                                rowspanCount = chapters.length;
-                                
-                                // 查找学科在subjects.json中的索引
-                                const subjectIndex = subjectsJson.subjects.findIndex(s => s.name === subject);
-                                const difficultyOptions = subjectIndex >= 0 ? subjectsJson.subjects[subjectIndex].difficultyOptions : ["简单", "中等", "困难"];
-                                
-                                // 遍历该学科的所有章节
-                                chapters.forEach((chapter, index) => {
-                                    tableHTML += `<tr>`;
-                                    
-                                    // 只在第一行显示学科名称，并设置rowspan
-                                    if (index === 0) {
-                                        tableHTML += `<td style="background-color: #4285f4; color: white; text-align: center; vertical-align: middle; border: 1px solid #ddd;" rowspan="${rowspanCount}">${subject}</td>`;
-                                    }
-                                    
-                                    tableHTML += `<td style="border: 1px solid #ddd; text-align: center;">${chapter}</td>`;
-                                    
-                                    // 难度下拉框
-                                    let currentDifficulty = "中等";
-                                    if (subjectIndex >= 0 && subjectsJson.subjects[subjectIndex].difficulties && subjectsJson.subjects[subjectIndex].difficulties[chapter]) {
-                                        currentDifficulty = subjectsJson.subjects[subjectIndex].difficulties[chapter];
-                                    }
-                                    
-                                    tableHTML += `<td style="border: 1px solid #ddd; text-align: center;">
-                                        <select class="difficulty-select" data-subject="${subject}" data-chapter="${chapter}">`;
-                                    
-                                    difficultyOptions.forEach(option => {
-                                        const selected = option === currentDifficulty ? 'selected' : '';
-                                        tableHTML += `<option value="${option}" ${selected}>${option}</option>`;
-                                    });
-                                    
-                                    tableHTML += `</select></td>`;
-                                    
-                                    // 持续时间列 - 显示该章节的总时长
-                                    const durationKey = `${subject}|${chapter}`;
-                                    const totalDuration = chapterDurations[durationKey] || 0;
-                                    tableHTML += `<td style="border: 1px solid #ddd; text-align: center;">${totalDuration.toFixed(1)}</td>`;
-                                    
-                                    // 为每个日期创建单元格
-                                    sortedDates.forEach(date => {
-                                        // 查找该日期、学科和章节的任务
-                                        const matchingTasks = plans
-                                            .filter(plan => plan.planDate === date)
-                                            .flatMap(plan => plan.StudyTasks || [])
-                                            .filter(task => task && task.subject === subject && task.chapters === chapter);
-                                        
-                                        if (matchingTasks.length > 0) {
-                                            // 根据学科和任务内容决定颜色
-                                            const task = matchingTasks[0];
-                                            let backgroundColor = '#FFFFFF'; // 默认白色
-                                            
-                                            // 根据考点（章节）决定颜色
-                                            const chapterColors = {
-                                                'Set': '#FFFF00', // 黄色
-                                                'Function': '#4CAF50', // 绿色
-                                                'Quadratics': '#2196F3', // 蓝色
-                                                'Surd Indices': '#FFFF00',
-                                                'Geometry': '#4CAF50',
-                                                'Solid Geometry': '#2196F3',
-                                                'Graphs': '#FFFF00',
-                                                'Probablility': '#4CAF50',
-                                                'Trigonometry': '#2196F3',
-                                                'Sequence': '#FFFF00',
-                                                'Vector and matrix': '#4CAF50',
-                                                'Transformation': '#2196F3'
-                                            };
-                                            
-                                            // 如果章节在预定义的颜色映射中，使用对应的颜色
-                                            if (chapterColors[chapter]) {
-                                                backgroundColor = chapterColors[chapter];
-                                            } else {
-                                                // 如果没有预定义颜色，根据章节名称的长度决定颜色
-                                                const chapterLength = chapter.length;
-                                                if (chapterLength % 3 === 0) {
-                                                    backgroundColor = '#FFFF00'; // 黄色
-                                                } else if (chapterLength % 3 === 1) {
-                                                    backgroundColor = '#4CAF50'; // 绿色
-                                                } else {
-                                                    backgroundColor = '#2196F3'; // 蓝色
-                                                }
-                                            }
-                                            
-                                            tableHTML += `<td style="border: 1px solid #ddd; background-color: ${backgroundColor};"></td>`;
-                                        } else {
-                                            tableHTML += `<td style="border: 1px solid #ddd;"></td>`;
-                                        }
-                                    });
-                                    
-                                    tableHTML += `</tr>`;
-                                });
-                            }
-                            
-                            tableHTML += `</tbody></table>`;
-                            
-                            document.getElementById('gantt-view').innerHTML = tableHTML;
-                            
-                            // 为难度下拉框添加事件监听器
-                            document.querySelectorAll('.difficulty-select').forEach(select => {
-                                select.addEventListener('change', function() {
-                                    const subject = this.getAttribute('data-subject');
-                                    const chapter = this.getAttribute('data-chapter');
-                                    const difficulty = this.value;
-                                    
-                                    // 更新subjects.json中的难度
-                                    updateDifficulty(subject, chapter, difficulty);
-                                });
-                            });
-                        })
-                        .catch(error => {
-                            console.error('Error loading subjects.json:', error);
-                            // 如果无法加载subjects.json，则使用默认值渲染
-                            renderGanttChartWithoutDifficulties(plans, sortedDates, subjects);
-                        });
-                })
-                .catch(error => {
-                    console.error('Error loading plans for Gantt chart:', error);
-                    document.getElementById('gantt-view').innerHTML = '<p>加载甘特图数据失败，请重试</p>';
-                });
-        }
-        
-        // 更新章节难度
-        function updateDifficulty(subject, chapter, difficulty) {
-            fetch('/subjects.json')
-                .then(response => response.json())
-                .then(data => {
-                    // 查找学科
-                    const subjectIndex = data.subjects.findIndex(s => s.name === subject);
-                    if (subjectIndex >= 0) {
-                        // 确保difficulties对象存在
-                        if (!data.subjects[subjectIndex].difficulties) {
-                            data.subjects[subjectIndex].difficulties = {};
-                        }
-                        
-                        // 更新难度
-                        data.subjects[subjectIndex].difficulties[chapter] = difficulty;
-                        
-                        // 保存回文件
-                        fetch('/api/save-subjects-json', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        })
-                        .then(response => {
-                            if (!response.ok) {
-                                console.error('Failed to save subjects.json');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error saving subjects.json:', error);
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading subjects.json for update:', error);
-                });
-        }
-        
-        // 在无法加载subjects.json时渲染甘特图
-        function renderGanttChartWithoutDifficulties(plans, sortedDates, subjects) {
+            const allPlans = getFromLocalStorage('plans') || [];
+            
+            // 尝试加载subjects.json以获取难度信息
+            const subjectsJson = getFromLocalStorage('subjectsJson');
+            
+            // 提取所有唯一的日期
+            const allDates = new Set();
+            allPlans.forEach(plan => {
+                allDates.add(plan.planDate);
+            });
+            
+            // 将日期转换为数组并排序
+            const sortedDates = Array.from(allDates).sort();
+            
             // 获取所有学科和章节
             const subjectChapters = {};
             
@@ -1246,7 +1106,7 @@
             
             // 计算每个章节的总持续时间
             const chapterDurations = {};
-            plans.forEach(plan => {
+            allPlans.forEach(plan => {
                 if (plan.StudyTasks) {
                     plan.StudyTasks.forEach(task => {
                         const key = `${task.subject}|${task.chapters}`;
@@ -1261,7 +1121,7 @@
             // 获取第一个日期的年份和月份作为表头
             let yearMonth = '';
             if (sortedDates.length > 0) {
-                const firstDate = new Date(sortedDates[0]);
+                const firstDate = new Date(sortedDates[0] + 'T00:00:00');
                 const year = firstDate.getFullYear();
                 const month = firstDate.getMonth() + 1;
                 yearMonth = `${year}年${month}月`;
@@ -1286,9 +1146,10 @@
             
             // 添加日期列
             sortedDates.forEach(date => {
-                const dateObj = new Date(date);
+                const dateObj = new Date(date + 'T00:00:00');
                 const day = dateObj.getDate();
-                tableHTML += `<th style="background-color: #4285f4; color: white; text-align: center; border: 1px solid #ddd; min-width: 40px;">4月${day}日</th>`;
+                const month = dateObj.getMonth() + 1;
+                tableHTML += `<th style="background-color: #4285f4; color: white; text-align: center; border: 1px solid #ddd; min-width: 40px;">${month}月${day}日</th>`;
             });
             
             tableHTML += `</tr></thead><tbody>`;
@@ -1302,6 +1163,10 @@
                 const chapters = subjectChapters[subject];
                 rowspanCount = chapters.length;
                 
+                // 查找学科在subjects.json中的索引
+                const subjectIndex = subjectsJson && subjectsJson.subjects ? subjectsJson.subjects.findIndex(s => s.name === subject) : -1;
+                const difficultyOptions = subjectIndex >= 0 && subjectsJson.subjects[subjectIndex].difficultyOptions ? subjectsJson.subjects[subjectIndex].difficultyOptions : ["简单", "中等", "困难"];
+                
                 // 遍历该学科的所有章节
                 chapters.forEach((chapter, index) => {
                     tableHTML += `<tr>`;
@@ -1313,14 +1178,21 @@
                     
                     tableHTML += `<td style="border: 1px solid #ddd; text-align: center;">${chapter}</td>`;
                     
-                    // 难度下拉框（默认选项）
+                    // 难度下拉框
+                    let currentDifficulty = "中等";
+                    if (subjectIndex >= 0 && subjectsJson.subjects[subjectIndex].difficulties && subjectsJson.subjects[subjectIndex].difficulties[chapter]) {
+                        currentDifficulty = subjectsJson.subjects[subjectIndex].difficulties[chapter];
+                    }
+                    
                     tableHTML += `<td style="border: 1px solid #ddd; text-align: center;">
-                        <select class="difficulty-select" data-subject="${subject}" data-chapter="${chapter}">
-                            <option value="简单">简单</option>
-                            <option value="中等" selected>中等</option>
-                            <option value="困难">困难</option>
-                        </select>
-                    </td>`;
+                        <select class="difficulty-select" data-subject="${subject}" data-chapter="${chapter}">`;
+                    
+                    difficultyOptions.forEach(option => {
+                        const selected = option === currentDifficulty ? 'selected' : '';
+                        tableHTML += `<option value="${option}" ${selected}>${option}</option>`;
+                    });
+                    
+                    tableHTML += `</select></td>`;
                     
                     // 持续时间列 - 显示该章节的总时长
                     const durationKey = `${subject}|${chapter}`;
@@ -1330,7 +1202,7 @@
                     // 为每个日期创建单元格
                     sortedDates.forEach(date => {
                         // 查找该日期、学科和章节的任务
-                        const matchingTasks = plans
+                        const matchingTasks = allPlans
                             .filter(plan => plan.planDate === date)
                             .flatMap(plan => plan.StudyTasks || [])
                             .filter(task => task && task.subject === subject && task.chapters === chapter);
@@ -1384,6 +1256,41 @@
             tableHTML += `</tbody></table>`;
             
             document.getElementById('gantt-view').innerHTML = tableHTML;
+            
+            // 为难度下拉框添加事件监听器
+            document.querySelectorAll('.difficulty-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    const subject = this.getAttribute('data-subject');
+                    const chapter = this.getAttribute('data-chapter');
+                    const difficulty = this.value;
+                    
+                    // 更新subjects.json中的难度
+                    updateDifficulty(subject, chapter, difficulty);
+                });
+            });
+        }
+        
+        // 更新章节难度
+        function updateDifficulty(subject, chapter, difficulty) {
+            // 从本地存储获取subjects.json
+            const subjectsJson = getFromLocalStorage('subjectsJson');
+            
+            if (subjectsJson) {
+                // 查找学科
+                const subjectIndex = subjectsJson.subjects.findIndex(s => s.name === subject);
+                if (subjectIndex >= 0) {
+                    // 确保difficulties对象存在
+                    if (!subjectsJson.subjects[subjectIndex].difficulties) {
+                        subjectsJson.subjects[subjectIndex].difficulties = {};
+                    }
+                    
+                    // 更新难度
+                    subjectsJson.subjects[subjectIndex].difficulties[chapter] = difficulty;
+                    
+                    // 保存回本地存储
+                    saveToLocalStorage('subjectsJson', subjectsJson);
+                }
+            }
         }
         
         // 导出为CSV
@@ -1394,212 +1301,173 @@
             }
             
             // 获取所有计划数据
-            fetch('/api/plans')
-                .then(response => response.json())
-                .then(plans => {
-                    // 尝试加载subjects.json以获取难度信息
-                    fetch('/subjects.json')
-                        .then(response => response.json())
-                        .then(subjectsJson => {
-                            // 提取所有唯一的日期
-                            const allDates = new Set();
-                            plans.forEach(plan => {
-                                allDates.add(plan.planDate);
-                            });
+            const allPlans = getFromLocalStorage('plans') || [];
+            
+            // 尝试加载subjects.json以获取难度信息
+            const subjectsJson = getFromLocalStorage('subjectsJson');
+            
+            // 提取所有唯一的日期
+            const allDates = new Set();
+            allPlans.forEach(plan => {
+                allDates.add(plan.planDate);
+            });
+            
+            // 将日期转换为数组并排序
+            const sortedDates = Array.from(allDates).sort();
+            
+            // 获取所有学科和章节
+            const subjectChapters = {};
+            
+            // 收集所有学科和章节
+            for (const subject in subjects) {
+                if (!subjectChapters[subject]) {
+                    subjectChapters[subject] = [];
+                }
+                
+                if (subjects[subject]) {
+                    subjects[subject].forEach(chapter => {
+                        subjectChapters[subject].push(chapter);
+                    });
+                }
+            }
+            
+            // 计算每个章节的总持续时间
+            const chapterDurations = {};
+            allPlans.forEach(plan => {
+                if (plan.StudyTasks) {
+                    plan.StudyTasks.forEach(task => {
+                        const key = `${task.subject}|${task.chapters}`;
+                        if (!chapterDurations[key]) {
+                            chapterDurations[key] = 0;
+                        }
+                        chapterDurations[key] += convertTimeToHours(task.durationTime);
+                    });
+                }
+            });
+            
+            // 获取第一个日期的年份和月份作为表头
+            let yearMonth = '';
+            if (sortedDates.length > 0) {
+                const firstDate = new Date(sortedDates[0] + 'T00:00:00');
+                const year = firstDate.getFullYear();
+                const month = firstDate.getMonth() + 1;
+                yearMonth = `${year}年${month}月`;
+            } else {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = today.getMonth() + 1;
+                yearMonth = `${year}年${month}月`;
+            }
+            
+            // 创建CSV内容
+            let csvContent = '学习科目,考点,难度,持续时间,';
+            
+            // 添加年月行
+            for (let i = 0; i < sortedDates.length; i++) {
+                csvContent += yearMonth + ',';
+            }
+            csvContent += '\n';
+            
+            // 添加日期行
+            csvContent += ',,,';
+            sortedDates.forEach(date => {
+                const dateObj = new Date(date);
+                const day = dateObj.getDate();
+                csvContent += `4月${day}日,`;
+            });
+            csvContent += '\n';
+            
+            // 按学科和章节分组填充行数据
+            for (const subject in subjectChapters) {
+                const chapters = subjectChapters[subject];
+                
+                // 查找学科在subjects.json中的索引
+                const subjectIndex = subjectsJson && subjectsJson.subjects ? subjectsJson.subjects.findIndex(s => s.name === subject) : -1;
+                
+                // 遍历该学科的所有章节
+                chapters.forEach((chapter, index) => {
+                    // 获取难度
+                    let difficulty = "中等";
+                    if (subjectIndex >= 0 && subjectsJson.subjects[subjectIndex].difficulties && subjectsJson.subjects[subjectIndex].difficulties[chapter]) {
+                        difficulty = subjectsJson.subjects[subjectIndex].difficulties[chapter];
+                    }
+                    
+                    // 获取持续时间
+                    const durationKey = `${subject}|${chapter}`;
+                    const totalDuration = chapterDurations[durationKey] || 0;
+                    
+                    if (index === 0) {
+                        // 第一行显示学科名称
+                        csvContent += `${subject},${chapter},${difficulty},${totalDuration.toFixed(1)},`;
+                    } else {
+                        // 后续行不显示学科名称
+                        csvContent += `,${chapter},${difficulty},${totalDuration.toFixed(1)},`;
+                    }
+                    
+                    // 为每个日期创建单元格
+                    sortedDates.forEach(date => {
+                        // 查找该日期、学科和章节的任务
+                        const matchingTasks = allPlans
+                            .filter(plan => plan.planDate === date)
+                            .flatMap(plan => plan.StudyTasks || [])
+                            .filter(task => task && task.subject === subject && task.chapters === chapter);
+                        
+                        if (matchingTasks.length > 0) {
+                            // 根据学科和任务内容决定颜色代码
+                            const task = matchingTasks[0];
+                            let colorCode = 'Y'; // 默认黄色
                             
-                            // 将日期转换为数组并排序
-                            const sortedDates = Array.from(allDates).sort();
+                            // 根据考点（章节）决定颜色代码
+                            const chapterColorCodes = {
+                                'Set': 'Y',
+                                'Function': 'G',
+                                'Quadratics': 'B',
+                                'Surd Indices': 'Y',
+                                'Geometry': 'G',
+                                'Solid Geometry': 'B',
+                                'Graphs': 'Y',
+                                'Probablility': 'G',
+                                'Trigonometry': 'B',
+                                'Sequence': 'Y',
+                                'Vector and matrix': 'G',
+                                'Transformation': 'B'
+                            };
                             
-                            // 获取所有学科和章节
-                            const subjectChapters = {};
-                            
-                            // 收集所有学科和章节
-                            for (const subject in subjects) {
-                                if (!subjectChapters[subject]) {
-                                    subjectChapters[subject] = [];
-                                }
-                                
-                                if (subjects[subject]) {
-                                    subjects[subject].forEach(chapter => {
-                                        subjectChapters[subject].push(chapter);
-                                    });
-                                }
-                            }
-                            
-                            // 计算每个章节的总持续时间
-                            const chapterDurations = {};
-                            plans.forEach(plan => {
-                                if (plan.StudyTasks) {
-                                    plan.StudyTasks.forEach(task => {
-                                        const key = `${task.subject}|${task.chapters}`;
-                                        if (!chapterDurations[key]) {
-                                            chapterDurations[key] = 0;
-                                        }
-                                        chapterDurations[key] += convertTimeToHours(task.durationTime);
-                                    });
-                                }
-                            });
-                            
-                            // 获取第一个日期的年份和月份作为表头
-                            let yearMonth = '';
-                            if (sortedDates.length > 0) {
-                                const firstDate = new Date(sortedDates[0]);
-                                const year = firstDate.getFullYear();
-                                const month = firstDate.getMonth() + 1;
-                                yearMonth = `${year}年${month}月`;
+                            // 如果章节在预定义的颜色映射中，使用对应的颜色代码
+                            if (chapterColorCodes[chapter]) {
+                                colorCode = chapterColorCodes[chapter];
                             } else {
-                                const today = new Date();
-                                const year = today.getFullYear();
-                                const month = today.getMonth() + 1;
-                                yearMonth = `${year}年${month}月`;
+                                // 如果没有预定义颜色，根据章节名称的长度决定颜色
+                                const chapterLength = chapter.length;
+                                if (chapterLength % 3 === 0) {
+                                    colorCode = 'Y'; // 黄色
+                                } else if (chapterLength % 3 === 1) {
+                                    colorCode = 'G'; // 绿色
+                                } else {
+                                    colorCode = 'B'; // 蓝色
+                                }
                             }
                             
-                            // 创建CSV内容
-                            let csvContent = '学习科目,考点,难度,持续时间,';
-                            
-                            // 添加年月行
-                            for (let i = 0; i < sortedDates.length; i++) {
-                                csvContent += yearMonth + ',';
-                            }
-                            csvContent += '\n';
-                            
-                            // 添加日期行
-                            csvContent += ',,,';
-                            sortedDates.forEach(date => {
-                                const dateObj = new Date(date);
-                                const day = dateObj.getDate();
-                                csvContent += `4月${day}日,`;
-                            });
-                            csvContent += '\n';
-                            
-                            // 按学科和章节分组填充行数据
-                            for (const subject in subjectChapters) {
-                                const chapters = subjectChapters[subject];
-                                
-                                // 查找学科在subjects.json中的索引
-                                const subjectIndex = subjectsJson.subjects.findIndex(s => s.name === subject);
-                                
-                                // 遍历该学科的所有章节
-                                chapters.forEach((chapter, index) => {
-                                    // 获取难度
-                                    let difficulty = "中等";
-                                    if (subjectIndex >= 0 && subjectsJson.subjects[subjectIndex].difficulties && subjectsJson.subjects[subjectIndex].difficulties[chapter]) {
-                                        difficulty = subjectsJson.subjects[subjectIndex].difficulties[chapter];
-                                    }
-                                    
-                                    // 获取持续时间
-                                    const durationKey = `${subject}|${chapter}`;
-                                    const totalDuration = chapterDurations[durationKey] || 0;
-                                    
-                                    if (index === 0) {
-                                        // 第一行显示学科名称
-                                        csvContent += `${subject},${chapter},${difficulty},${totalDuration.toFixed(1)},`;
-                                    } else {
-                                        // 后续行不显示学科名称
-                                        csvContent += `,${chapter},${difficulty},${totalDuration.toFixed(1)},`;
-                                    }
-                                    
-                                    // 为每个日期创建单元格
-                                    sortedDates.forEach(date => {
-                                        // 查找该日期、学科和章节的任务
-                                        const matchingTasks = plans
-                                            .filter(plan => plan.planDate === date)
-                                            .flatMap(plan => plan.StudyTasks || [])
-                                            .filter(task => task && task.subject === subject && task.chapters === chapter);
-                                        
-                                        if (matchingTasks.length > 0) {
-                                            // 根据学科和任务内容决定颜色代码
-                                            const task = matchingTasks[0];
-                                            let colorCode = 'Y'; // 默认黄色
-                                            
-                                            // 根据考点（章节）决定颜色代码
-                                            const chapterColorCodes = {
-                                                'Set': 'Y',
-                                                'Function': 'G',
-                                                'Quadratics': 'B',
-                                                'Surd Indices': 'Y',
-                                                'Geometry': 'G',
-                                                'Solid Geometry': 'B',
-                                                'Graphs': 'Y',
-                                                'Probablility': 'G',
-                                                'Trigonometry': 'B',
-                                                'Sequence': 'Y',
-                                                'Vector and matrix': 'G',
-                                                'Transformation': 'B'
-                                            };
-                                            
-                                            // 如果章节在预定义的颜色映射中，使用对应的颜色代码
-                                            if (chapterColorCodes[chapter]) {
-                                                colorCode = chapterColorCodes[chapter];
-                                            } else {
-                                                // 如果没有预定义颜色，根据章节名称的长度决定颜色
-                                                const chapterLength = chapter.length;
-                                                if (chapterLength % 3 === 0) {
-                                                    colorCode = 'Y'; // 黄色
-                                                } else if (chapterLength % 3 === 1) {
-                                                    colorCode = 'G'; // 绿色
-                                                } else {
-                                                    colorCode = 'B'; // 蓝色
-                                                }
-                                            }
-                                            
-                                            csvContent += `${colorCode},`;
-                                        } else {
-                                            csvContent += ',';
-                                        }
-                                    });
-                                    
-                                    csvContent += '\n';
-                                });
-                            }
-                            
-                            // 创建下载链接
-                            const encodedUri = encodeURI('data:text/csv;charset=utf-8,\uFEFF' + csvContent);
-                            const link = document.createElement('a');
-                            link.setAttribute('href', encodedUri);
-                            link.setAttribute('download', `学习计划甘特图.csv`);
-                            document.body.appendChild(link);
-                            
-                            // 触发下载
-                            link.click();
-                            document.body.removeChild(link);
-                        })
-                        .catch(error => {
-                            console.error('Error loading subjects.json for CSV export:', error);
-                            alert('导出CSV失败，请重试');
-                        });
-                })
-                .catch(error => {
-                    console.error('Error exporting CSV:', error);
-                    alert('导出CSV失败，请重试');
-                });
-        }
-        
-        // 保存学科数据到服务器
-        async function saveSubjectsToServer(subjectsData) {
-            // 获取所有现有学科
-            const existingSubjects = await fetch('/api/subjects').then(res => res.json());
-            
-            // 删除所有现有学科
-            for (const subject of existingSubjects) {
-                await fetch(`/api/subjects/${subject.id}`, {
-                    method: 'DELETE'
+                            csvContent += `${colorCode},`;
+                        } else {
+                            csvContent += ',';
+                        }
+                    });
+                    
+                    csvContent += '\n';
                 });
             }
             
-            // 创建新学科和章节
-            for (const subject of subjectsData.subjects) {
-                await fetch('/api/subjects', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        name: subject.name,
-                        chapters: subject.chapters
-                    })
-                });
-            }
+            // 创建下载链接
+            const encodedUri = encodeURI('data:text/csv;charset=utf-8,\uFEFF' + csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `学习计划甘特图.csv`);
+            document.body.appendChild(link);
+            
+            // 触发下载
+            link.click();
+            document.body.removeChild(link);
         }
         
         // 全局函数定义 - 这些函数需要在全局作用域中定义，以便HTML元素可以直接调用
