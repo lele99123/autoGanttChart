@@ -242,6 +242,152 @@
             font-weight: bold;
             cursor: pointer;
         }
+        
+        /* 响应式设计 - 移动设备适配 */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 0;
+            }
+            
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+            
+            .tab-container {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .tab-button {
+                margin-bottom: 10px;
+                font-size: 14px;
+                padding: 8px 15px;
+                flex-grow: 1;
+                text-align: center;
+                max-width: 30%;
+            }
+            
+            .input-form, .gantt-chart, .plans-list {
+                padding: 15px 10px;
+            }
+            
+            .plan-name-input input {
+                width: 100%;
+            }
+            
+            /* 移动端任务表格样式 */
+            .mobile-table-view .task-table {
+                border: none;
+            }
+            
+            .mobile-table-view .task-table, 
+            .mobile-table-view .task-table thead, 
+            .mobile-table-view .task-table tbody, 
+            .mobile-table-view .task-table th, 
+            .mobile-table-view .task-table td, 
+            .mobile-table-view .task-table tr {
+                display: block;
+            }
+            
+            .mobile-table-view .task-table thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            
+            .mobile-table-view .task-table tr {
+                border: 1px solid #ddd;
+                margin-bottom: 20px;
+                border-radius: 5px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .mobile-table-view .task-table td {
+                border: none;
+                border-bottom: 1px solid #eee;
+                position: relative;
+                padding: 10px 5px 10px 50%;
+                text-align: left;
+            }
+            
+            .mobile-table-view .task-table td:last-child {
+                border-bottom: none;
+                text-align: center;
+                padding: 10px;
+            }
+            
+            .mobile-table-view .task-table td:before {
+                position: absolute;
+                top: 12px;
+                left: 10px;
+                width: 45%;
+                padding-right: 10px;
+                white-space: nowrap;
+                font-weight: bold;
+                content: attr(data-label);
+            }
+            
+            .mobile-table-view .task-table select,
+            .mobile-table-view .task-table input,
+            .mobile-table-view .task-table textarea {
+                width: 100%;
+            }
+            
+            .mobile-table-view .task-table .chapter-select {
+                height: 120px;
+            }
+            
+            .btn-group {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .btn {
+                margin-bottom: 10px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
+            
+            /* 移动端模态框样式 */
+            .modal-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            /* 移动端甘特图滚动条样式 */
+            .gantt-container::-webkit-scrollbar {
+                height: 8px;
+            }
+            
+            .gantt-container::-webkit-scrollbar-thumb {
+                background: #ccc;
+                border-radius: 4px;
+            }
+            
+            .gantt-container::-webkit-scrollbar-track {
+                background: #f0f0f0;
+                border-radius: 4px;
+            }
+            
+            /* 移动端切换按钮 */
+            .mobile-view-toggle {
+                display: none;
+                margin-bottom: 15px;
+                text-align: center;
+            }
+            
+            @media screen and (max-width: 768px) {
+                .mobile-view-toggle {
+                    display: block;
+                }
+            }
+        }
     </style>
     
     <script>
@@ -485,6 +631,10 @@
                 
                 console.log("按钮诊断完成");
             }, 1000);
+            
+            // 移动端适配检测
+            checkMobileView();
+            window.addEventListener('resize', checkMobileView);
         });
         
         // 本地存储函数
@@ -977,26 +1127,26 @@
             const newRow = document.createElement('tr');
             
             newRow.innerHTML = `
-                <td>
+                <td data-label="学科">
                     <select class="subject-select">
                         <option value="">-- 选择学科 --</option>
                     </select>
                 </td>
-                <td>
+                <td data-label="复习章节">
                     <select class="chapter-select" multiple size="5">
                         <option value="">-- 选择章节 --</option>
                     </select>
                 </td>
-                <td>
+                <td data-label="学习内容">
                     <textarea class="content-input" rows="2" cols="20"></textarea>
                 </td>
-                <td>
+                <td data-label="开始时间">
                     <input type="time" class="start-time">
                 </td>
-                <td>
+                <td data-label="时长(小时)">
                     <input type="number" class="duration" min="0.5" step="0.5" value="1">
                 </td>
-                <td>
+                <td data-label="操作">
                     <button class="btn btn-delete" onclick="deleteRow(this)">删除</button>
                 </td>
             `;
@@ -1612,6 +1762,80 @@
             const newMinutes = totalMinutes % 60;
             return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
         }
+        
+        // 检测移动端并应用相应样式
+        function checkMobileView() {
+            const isMobile = window.innerWidth <= 768;
+            const inputFormDiv = document.getElementById('input-form');
+            
+            if (isMobile) {
+                // 在输入表单前添加移动端切换按钮
+                if (!document.getElementById('mobile-view-toggle')) {
+                    const toggleDiv = document.createElement('div');
+                    toggleDiv.className = 'mobile-view-toggle';
+                    toggleDiv.id = 'mobile-view-toggle';
+                    toggleDiv.innerHTML = `
+                        <button class="btn" id="toggle-table-view">切换表格视图模式</button>
+                    `;
+                    inputFormDiv.insertBefore(toggleDiv, inputFormDiv.querySelector('.task-table'));
+                    
+                    // 添加切换事件
+                    document.getElementById('toggle-table-view').addEventListener('click', function() {
+                        const taskTableContainer = document.getElementById('task-table-container');
+                        taskTableContainer.classList.toggle('mobile-table-view');
+                        this.textContent = taskTableContainer.classList.contains('mobile-table-view') 
+                            ? '切换为标准表格视图' 
+                            : '切换为移动端视图';
+                    });
+                }
+                
+                // 确保任务表格有容器
+                const taskTable = document.querySelector('.task-table');
+                let taskTableContainer = document.getElementById('task-table-container');
+                
+                if (!taskTableContainer) {
+                    taskTableContainer = document.createElement('div');
+                    taskTableContainer.id = 'task-table-container';
+                    taskTableContainer.className = 'mobile-table-view';
+                    taskTable.parentNode.insertBefore(taskTableContainer, taskTable);
+                    taskTableContainer.appendChild(taskTable);
+                }
+                
+                // 确保表格单元格有data-label属性
+                updateTableDataLabels();
+            } else {
+                // 桌面端 - 移除移动端特有元素
+                const toggleDiv = document.getElementById('mobile-view-toggle');
+                if (toggleDiv) {
+                    toggleDiv.remove();
+                }
+                
+                // 恢复表格原始结构
+                const taskTableContainer = document.getElementById('task-table-container');
+                if (taskTableContainer) {
+                    const taskTable = taskTableContainer.querySelector('.task-table');
+                    if (taskTable) {
+                        taskTableContainer.parentNode.insertBefore(taskTable, taskTableContainer);
+                        taskTableContainer.remove();
+                    }
+                }
+            }
+        }
+        
+        // 更新表格单元格的data-label属性
+        function updateTableDataLabels() {
+            const headers = Array.from(document.querySelectorAll('.task-table th')).map(th => th.textContent);
+            const rows = document.querySelectorAll('.task-table tbody tr');
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach((cell, index) => {
+                    if (index < headers.length) {
+                        cell.setAttribute('data-label', headers[index]);
+                    }
+                });
+            });
+        }
     </script>
 </head>
 <body>
@@ -1692,26 +1916,26 @@
                 </thead>
                 <tbody id="task-list">
                     <tr>
-                        <td>
+                        <td data-label="学科">
                             <select id="subject" class="subject-select">
                                 <option value="">-- 选择学科 --</option>
                             </select>
                         </td>
-                        <td>
+                        <td data-label="复习章节">
                             <select id="chapter" class="chapter-select" multiple size="5">
                                 <option value="">-- 选择章节 --</option>
                             </select>
                         </td>
-                        <td>
+                        <td data-label="学习内容">
                             <textarea id="content" class="content-input" rows="2" cols="20"></textarea>
                         </td>
-                        <td>
+                        <td data-label="开始时间">
                             <input type="time" id="start-time" class="start-time">
                         </td>
-                        <td>
+                        <td data-label="时长(小时)">
                             <input type="number" id="duration" class="duration" min="0.5" step="0.5" value="1">
                         </td>
-                        <td>
+                        <td data-label="操作">
                             <button class="btn btn-delete" onclick="deleteRow(this)">删除</button>
                         </td>
                     </tr>
