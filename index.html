@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学习计划甘特图生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* 隐藏可能存在的服务器启动消息 */
         .server-loading-message {
@@ -262,6 +263,7 @@
         let addTaskBtn;
         let savePlanBtn;
         let exportCsvBtn;
+        let exportImageBtn;
         let backToPlansBtn;
         let dateInput;
         let planNameInput;
@@ -398,6 +400,7 @@
             addTaskBtn = document.getElementById('add-task');
             savePlanBtn = document.getElementById('save-plan');
             exportCsvBtn = document.getElementById('export-csv');
+            exportImageBtn = document.getElementById('export-image');
             backToPlansBtn = document.getElementById('back-to-plans');
             dateInput = document.getElementById('date');
             planNameInput = document.getElementById('plan-name');
@@ -405,7 +408,7 @@
             // 确保所有元素都存在
             if (!plansTab || !inputTab || !chartTab || !plansList || !inputForm || !ganttChart ||
                 !newPlanBtn || !refreshPlansBtn || !addTaskBtn || !savePlanBtn || !exportCsvBtn || 
-                !backToPlansBtn || !dateInput || !planNameInput) {
+                !exportImageBtn || !backToPlansBtn || !dateInput || !planNameInput) {
                 console.error("部分DOM元素未找到，可能会导致功能异常");
             } else {
                 console.log("所有DOM元素已成功获取");
@@ -444,6 +447,7 @@
                     { name: 'add-task', element: addTaskBtn },
                     { name: 'save-plan', element: savePlanBtn },
                     { name: 'export-csv', element: exportCsvBtn },
+                    { name: 'export-image', element: exportImageBtn },
                     { name: 'back-to-plans', element: backToPlansBtn }
                 ];
                 
@@ -732,6 +736,11 @@
             exportCsvBtn.addEventListener('click', function() {
                 console.log("导出CSV按钮被点击");
                 exportToCsv();
+            });
+            
+            exportImageBtn.addEventListener('click', function() {
+                console.log("导出图片按钮被点击");
+                exportToImage();
             });
             
             backToPlansBtn.addEventListener('click', function() {
@@ -1550,6 +1559,51 @@
             document.body.removeChild(link);
         }
 
+        // 导出为图片
+        function exportToImage() {
+            const ganttChart = document.getElementById('gantt-view');
+            
+            if (!ganttChart || !ganttChart.querySelector('table')) {
+                alert('没有甘特图数据可以导出');
+                return;
+            }
+            
+            // 显示加载提示
+            const loadingMsg = document.createElement('div');
+            loadingMsg.textContent = '正在生成图片，请稍候...';
+            loadingMsg.style.position = 'fixed';
+            loadingMsg.style.top = '50%';
+            loadingMsg.style.left = '50%';
+            loadingMsg.style.transform = 'translate(-50%, -50%)';
+            loadingMsg.style.padding = '20px';
+            loadingMsg.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            loadingMsg.style.color = 'white';
+            loadingMsg.style.borderRadius = '5px';
+            loadingMsg.style.zIndex = '1000';
+            document.body.appendChild(loadingMsg);
+            
+            // 使用html2canvas将甘特图转换为图片
+            html2canvas(ganttChart, {
+                scale: 2, // 提高分辨率
+                backgroundColor: '#fff',
+                logging: false,
+                useCORS: true
+            }).then(canvas => {
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.download = `${currentPlan.name}_甘特图_${new Date().toISOString().slice(0,10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                // 移除加载提示
+                document.body.removeChild(loadingMsg);
+            }).catch(error => {
+                console.error('导出图片失败:', error);
+                alert('导出图片失败: ' + error.message);
+                document.body.removeChild(loadingMsg);
+            });
+        }
+
         // 添加一个辅助函数来计算时间
         function addMinutesToTime(timeString, minutes) {
             const [hours, mins] = timeString.split(':').map(Number);
@@ -1680,6 +1734,7 @@
             
             <div class="btn-group">
                 <button class="btn" id="export-csv">导出为CSV</button>
+                <button class="btn" id="export-image">导出为图片</button>
                 <button class="btn" id="back-to-plans">返回计划列表</button>
             </div>
         </div>
