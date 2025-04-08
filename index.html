@@ -897,7 +897,7 @@
             const chapterSelect = row.querySelector('.chapter-select');
             
             // 清空现有选项
-            chapterSelect.innerHTML = '<option value="">-- 选择章节 --</option>';
+            chapterSelect.innerHTML = '';
             
             if (subject && subjects[subject]) {
                 subjects[subject].forEach(function(chapter) {
@@ -974,7 +974,7 @@
                     </select>
                 </td>
                 <td>
-                    <select class="chapter-select">
+                    <select class="chapter-select" multiple size="5">
                         <option value="">-- 选择章节 --</option>
                     </select>
                 </td>
@@ -1066,19 +1066,29 @@
             
             rows.forEach(function(row) {
                 const subject = row.querySelector('.subject-select').value;
-                const chapter = row.querySelector('.chapter-select').value;
+                const chapterSelect = row.querySelector('.chapter-select');
+                const selectedChapters = Array.from(chapterSelect.selectedOptions).map(option => option.value);
                 const content = row.querySelector('.content-input').value;
                 const startTime = row.querySelector('.start-time').value;
-                const duration = row.querySelector('.duration').value;
+                const totalDuration = parseFloat(row.querySelector('.duration').value);
                 
-                if (subject && chapter && startTime && duration) {
-                    tasks.push({
-                        id: generateId(),
-                        subject: subject,
-                        chapters: chapter,
-                        content: content,
-                        startTime: startTime,
-                        durationTime: convertHoursToTime(parseFloat(duration))
+                if (subject && selectedChapters.length > 0 && startTime && totalDuration) {
+                    // 计算每个章节的时长
+                    const durationPerChapter = totalDuration / selectedChapters.length;
+                    
+                    // 为每个选中的章节创建单独的任务
+                    selectedChapters.forEach((chapter, index) => {
+                        // 计算每个章节的开始时间
+                        const chapterStartTime = addMinutesToTime(startTime, index * (durationPerChapter * 60));
+                        
+                        tasks.push({
+                            id: generateId(),
+                            subject: subject,
+                            chapters: chapter,
+                            content: content,
+                            startTime: chapterStartTime,
+                            durationTime: convertHoursToTime(durationPerChapter)
+                        });
                     });
                 }
             });
@@ -1539,6 +1549,15 @@
             link.click();
             document.body.removeChild(link);
         }
+
+        // 添加一个辅助函数来计算时间
+        function addMinutesToTime(timeString, minutes) {
+            const [hours, mins] = timeString.split(':').map(Number);
+            const totalMinutes = hours * 60 + mins + minutes;
+            const newHours = Math.floor(totalMinutes / 60);
+            const newMinutes = totalMinutes % 60;
+            return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+        }
     </script>
 </head>
 <body>
@@ -1625,7 +1644,7 @@
                             </select>
                         </td>
                         <td>
-                            <select id="chapter" class="chapter-select">
+                            <select id="chapter" class="chapter-select" multiple size="5">
                                 <option value="">-- 选择章节 --</option>
                             </select>
                         </td>
